@@ -1,0 +1,7 @@
+server:
+  port: 5000
+  
+apis:
+  host: http://simulado:80
+  similarIds: /product/{productId}/similarids
+  productDetail: /product/{productId}
