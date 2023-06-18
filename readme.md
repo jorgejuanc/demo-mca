@@ -1,5 +1,5 @@
 ## How to run the containers
-While being in the root directory of the project xecute the following commands:
+While being in the root directory of the project execute the following commands:
 ```
 docker build -t demo-mca:1.0 .
 docker-compose up -d simulado influxdb grafana demo-mca
