@@ -5,28 +5,28 @@ import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClient.RequestBodySpec;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mca.demo.common.Constants;
-import com.mca.demo.common.Utils;
 import com.mca.demo.dto.ProductDetail;
 import com.mca.demo.exception.CustomException;
 import com.mca.demo.service.ExistingApisService;
-import com.mca.demo.service.RestApiService;
 
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
+
+@Slf4j
 @Service
 public class ExistingApisServiceImpl implements ExistingApisService {
-	
-	private static Logger logger = LoggerFactory.getLogger(ExistingApisServiceImpl.class);
 	
 	@Value("${apis.host}" + "${apis.similarIds}")
 	private String urlSimilarIds;
@@ -35,74 +35,47 @@ public class ExistingApisServiceImpl implements ExistingApisService {
 	private String urlProductDetail;
 	
 	@Autowired
-	private RestApiService restApiService;
+    private WebClient webClient;
 	
 	@Autowired
 	private Gson gson;
 	
 	
-	/**
-	 * Obtiene una lista de IDs similares para un producto dado.
-     *
-     * @param productId el ID del producto para el cual se desea obtener IDs similares
-     * 
-     * @return una lista de IDs similares en formato de cadena de texto
-     * @throws CustomException si ocurre algún error durante la obtención de los IDs similares
-     */
 	@Override
-	public List<String> getSimilarIds(String productId) throws CustomException {
-		String prefLog = Utils.prefLog();
-		logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_INICIO);
-		
-		URI url = UriComponentsBuilder.fromHttpUrl(
-				urlSimilarIds.replace(Constants.PARAM_PRODUCT_ID, productId)).build().toUri();
-		String plainResponse = null;
-		try {
-			plainResponse = restApiService.callRestApi(url, HttpMethod.GET, null);
-			logger.info(Constants.LOG_FORMAT_OK, prefLog, plainResponse);
-		} catch (IOException e) {
-			logger.error(Constants.LOG_FORMAT_ERROR, prefLog, e);
-			logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_FIN);
-			throw new CustomException(e.getMessage(), HttpStatus.NOT_FOUND);
-		}
-		
-		Type type = new TypeToken<List<String>>() {}.getType();
-		List<String> response = gson.fromJson(plainResponse, type);
-		
-		logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_FIN);
-		return response;
+	public Mono<List<String>> getSimilarIds(String productId) throws IOException {
+	    return makeRequest(productId, urlSimilarIds, new TypeToken<List<String>>() {}.getType(), "getSimilarIds");
 	}
 
-	/**
-     * Obtiene los detalles de un producto a partir de su ID.
-     *
-     * @param productId el ID del producto del que se desean obtener los detalles
-     * 
-     * @return objeto ProductDetail que contiene los detalles del producto
-     * @throws CustomException si ocurre algún error durante la obtención de los detalles del producto
-     */
 	@Override
-	public ProductDetail getProductDetailFromId(String productId) throws CustomException {
-		String prefLog = Utils.prefLog();
-		logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_INICIO);
-		
-		URI url = UriComponentsBuilder.fromHttpUrl(
-				urlProductDetail.replace(Constants.PARAM_PRODUCT_ID, productId)).build().toUri();
-		String plainResponse = null;
-		try {
-			plainResponse = restApiService.callRestApi(url, HttpMethod.GET, null);
-			logger.info(Constants.LOG_FORMAT_OK, prefLog, plainResponse);
-		} catch (IOException e) {
-			logger.error(Constants.LOG_FORMAT_ERROR, prefLog, e);
-			logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_FIN);
-			throw new CustomException(e.getMessage(), HttpStatus.NOT_FOUND);
-		}
-		
-		Type type = new TypeToken<ProductDetail>() {}.getType();
-		ProductDetail response = gson.fromJson(plainResponse, type);
-		
-		logger.info(Constants.LOG_TWO_VALUE, prefLog, Constants.LOG_FIN);
-		return response;
+	public Mono<ProductDetail> getProductDetailFromId(String productId) throws IOException {
+	    return makeRequest(productId, urlProductDetail, new TypeToken<ProductDetail>() {}.getType(), "getProductDetailFromId");
 	}
+
+	private <T> Mono<T> makeRequest(String productId, String urlTemplate, Type type, String logInfo) throws IOException {
+	    log.info("Inicio de " + logInfo);
+
+	    URI url = UriComponentsBuilder.fromHttpUrl(
+	            urlTemplate.replace(Constants.PARAM_PRODUCT_ID, productId)).build().toUri();
+
+	    RequestBodySpec requestSpec = webClient
+	            .method(HttpMethod.GET)
+	            .uri(url);
+
+	    return requestSpec.retrieve()
+	            .bodyToMono(String.class)
+	            .onErrorMap(e -> new RuntimeException("Error en callRestApi: URL -> " + url, e))
+	            .doOnSuccess(plainResponse -> log.info("Respuesta: " + plainResponse))
+	            .doOnError(e -> {
+	                log.error("Error en " + logInfo);
+	                log.info("Fin de " + logInfo);
+	            })
+	            .onErrorResume(e -> Mono.error(new CustomException(e.getMessage(), HttpStatus.NOT_FOUND)))
+	            .flatMap(plainResponse -> {
+	                T response = gson.fromJson(plainResponse, type);
+	                log.info("Fin de " + logInfo);
+	                return Mono.just(response);
+	            });
+	}
+
 
 }

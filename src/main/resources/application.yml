@@ -3,5 +3,6 @@ server:
   
 apis:
   host: http://simulado:80
+  #host: http://localhost:3001
   similarIds: /product/{productId}/similarids
   productDetail: /product/{productId}

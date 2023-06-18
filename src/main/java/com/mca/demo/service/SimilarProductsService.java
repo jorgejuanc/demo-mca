@@ -1,12 +1,13 @@
 package com.mca.demo.service;
 
-import java.util.List;
+import java.io.IOException;
 
 import com.mca.demo.dto.ProductDetail;
-import com.mca.demo.exception.CustomException;
+
+import reactor.core.publisher.Flux;
 
 public interface SimilarProductsService {
 
-	public List<ProductDetail> getSimilarProducts(String productId) throws CustomException;
+	public Flux<ProductDetail> getSimilarProducts(String productId) throws IOException;
 	
 }

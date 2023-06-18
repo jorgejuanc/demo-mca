@@ -1,13 +1,15 @@
 package com.mca.demo.service;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.mca.demo.dto.ProductDetail;
-import com.mca.demo.exception.CustomException;
+
+import reactor.core.publisher.Mono;
 
 public interface ExistingApisService {
 
-	public List<String> getSimilarIds(String productId) throws CustomException;
-    public ProductDetail getProductDetailFromId(String productId) throws CustomException;
+	public Mono<List<String>> getSimilarIds(String productId) throws IOException;
+    public Mono<ProductDetail> getProductDetailFromId(String productId) throws IOException;
     
 }
